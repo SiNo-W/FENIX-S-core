@@ -18,6 +18,7 @@
     input{text-align:right}textarea{min-height:52px}button{background:var(--accent);color:#111827;font-weight:900;border:0;margin-top:8px}
     .smallBtn{background:#334155;color:white}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border-bottom:1px solid var(--line);padding:5px;white-space:nowrap}.scroll{overflow:auto}
     @media(max-width:650px){.score{font-size:42px}}
+ canvas{width:100%;background:#020617;border-radius:10px;border:1px solid var(--line)}
   </style>
 </head>
 <body>
@@ -29,6 +30,10 @@
   </section>
   <section class="card"><div class="label">Dnevni unos</div><div id="form"></div><div class="inputRow"><span>Bilješka</span><textarea id="note"></textarea></div><button onclick="saveEntry()">SPREMI DAN</button></section>
   <section class="card"><div class="label">Povijest</div><div id="history" class="scroll"></div><button class="smallBtn" onclick="exportCsv()">Izvoz CSV</button></section>
+<section class="card">
+  <div class="label">Trend zadnjih 7 unosa</div>
+  <canvas id="trend" height="140"></canvas>
+</section>
 </main>
 <script>
 const metrics=[
@@ -51,7 +56,42 @@ function rec(s,e){if(s===null)return"Unesi podatke.";let r=s<45?"Crveno: odmor, 
 function saveEntry(){let e={date:new Date().toLocaleString("hr-HR")};metrics.forEach(m=>e[m.k]=document.getElementById(m.k).value);e.note=document.getElementById("note").value;e.score=score(e);entries.unshift(e);localStorage.setItem("fenixSAppEntries",JSON.stringify(entries));renderAll();window.scrollTo({top:0,behavior:"smooth"})}
 function dash(){let e=entries[0],s=document.getElementById("score"),st=document.getElementById("status"),r=document.getElementById("recommendation");if(!e){s.textContent="--";st.textContent="Unesi podatke";r.textContent="Unesi jutarnje podatke.";return}s.textContent=e.score;if(e.score<45){s.style.color="var(--red)";st.textContent="🔴 Nisko"}else if(e.score<70){s.style.color="var(--yellow)";st.textContent="🟡 Oprez"}else{s.style.color="var(--green)";st.textContent="🟢 Dobro"}r.textContent=rec(e.score,e)}
 function hist(){let h=document.getElementById("history");if(!entries.length){h.innerHTML="<p>Nema unosa.</p>";return}let rows=entries.slice(0,10).map(e=>`<tr><td>${e.date}</td><td>${e.score}</td><td>${e.bb||""}</td><td>${e.charge||""}</td><td>${e.drain||""}</td><td>${e.stress||""}</td><td>${e.temp||""}</td></tr>`).join("");h.innerHTML="<table><tr><th>Datum</th><th>FENIX</th><th>BB</th><th>+BB</th><th>-BB</th><th>Stres</th><th>Temp</th></tr>"+rows+"</table>"}
-function exportCsv(){let headers=["Datum","FENIX",...metrics.map(m=>m.n),"Bilješka"];let rows=entries.map(e=>[e.date,e.score,...metrics.map(m=>e[m.k]||""),e.note||""]);let csv=[headers,...rows].map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(",")).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="fenix_s_app_data.csv";a.click()}
-function renderAll(){renderForm();dash();hist()}renderAll();
+function trend(){
+  let c=document.getElementById("trend");
+  if(!c)return;
+  let ctx=c.getContext("2d");
+  ctx.clearRect(0,0,c.width,c.height);
+
+  let data=entries.slice(0,7).reverse().map(e=>Number(e.score));
+  if(data.length<2)return;
+
+  let w=c.width=c.offsetWidth;
+  let h=c.height=140;
+  let pad=18;
+
+  ctx.strokeStyle="#28415f";
+  ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    let y=pad+i*(h-2*pad)/4;
+    ctx.beginPath();
+    ctx.moveTo(pad,y);
+    ctx.lineTo(w-pad,y);
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle="#f59e0b";
+  ctx.lineWidth=3;
+  ctx.beginPath();
+
+  data.forEach((v,i)=>{
+    let x=pad+i*(w-2*pad)/(data.length-1);
+    let y=h-pad-(v/100)*(h-2*pad);
+    if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  });
+
+  ctx.stroke();
+}
+  function exportCsv(){let headers=["Datum","FENIX",...metrics.map(m=>m.n),"Bilješka"];let rows=entries.map(e=>[e.date,e.score,...metrics.map(m=>e[m.k]||""),e.note||""]);let csv=[headers,...rows].map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(",")).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="fenix_s_app_data.csv";a.click()}
+function renderAll(){renderForm();dash();hist();trend()}renderAll();
 </script>
 </body></html>
