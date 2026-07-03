@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="hr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>FENIX S App V0.7</title>
+  <style>
+    :root{--bg:#07111f;--panel:#0f1b2d;--text:#f8fafc;--muted:#94a3b8;--accent:#f59e0b;--green:#22c55e;--yellow:#facc15;--red:#ef4444;--line:#28415f}
+    *{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
+    header{position:sticky;top:0;background:#020617;padding:12px 14px;border-bottom:1px solid var(--line);z-index:5}
+    h1{margin:0;font-size:21px}.sub{font-size:12px;color:var(--muted)}
+    main{padding:10px;max-width:850px;margin:auto}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:11px;margin:10px 0}
+    .score{font-size:50px;font-weight:900;color:var(--accent);line-height:1;text-align:center}.status{text-align:center;font-weight:800;margin-top:5px}
+    .label{font-size:12px;color:var(--muted);margin-bottom:5px}.rec{font-size:14px;line-height:1.35}
+    .inputRow{display:grid;grid-template-columns:1fr 84px;gap:8px;align-items:center;margin:6px 0;font-size:14px}
+    input,textarea,button{width:100%;border-radius:9px;border:1px solid var(--line);background:#020617;color:var(--text);padding:8px;font-size:16px}
+    input{text-align:right}textarea{min-height:52px}button{background:var(--accent);color:#111827;font-weight:900;border:0;margin-top:8px}
+    .smallBtn{background:#334155;color:white}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border-bottom:1px solid var(--line);padding:5px;white-space:nowrap}.scroll{overflow:auto}
+    @media(max-width:650px){.score{font-size:42px}}
+  </style>
+</head>
+<body>
+<header><h1>🦅 FENIX S App V0.7</h1><div class="sub">Every recovery deserves a copilot.</div></header>
+<main>
+  <section class="grid">
+    <div class="card"><div class="label">FENIX indeks</div><div id="score" class="score">--</div><div id="status" class="status">Unesi podatke</div></div>
+    <div class="card"><div class="label">Preporuka</div><div id="recommendation" class="rec">Unesi jutarnje podatke.</div></div>
+  </section>
+  <section class="card"><div class="label">Dnevni unos</div><div id="form"></div><div class="inputRow"><span>Bilješka</span><textarea id="note"></textarea></div><button onclick="saveEntry()">SPREMI DAN</button></section>
+  <section class="card"><div class="label">Povijest</div><div id="history" class="scroll"></div><button class="smallBtn" onclick="exportCsv()">Izvoz CSV</button></section>
+</main>
+<script>
+const metrics=[
+ {k:"bb",n:"Body Battery sada",min:0,max:100,w:18,up:true},
+ {k:"charge",n:"BB punjenje +",min:0,max:100,w:12,up:true},
+ {k:"drain",n:"BB potrošnja -",min:0,max:100,w:12,up:false},
+ {k:"stress",n:"Stres Garmin",min:0,max:100,w:10,up:false},
+ {k:"temp",n:"Temperatura °C",min:0,max:40,w:8,up:false},
+ {k:"sleep",n:"San sati",min:0,max:9,w:12,up:true},
+ {k:"energy",n:"Moja energija",min:1,max:10,w:14,up:true},
+ {k:"hand",n:"Desna ruka",min:1,max:10,w:8,up:true},
+ {k:"cramps",n:"Grčevi",min:0,max:10,w:8,up:false},
+ {k:"water",n:"Voda L",min:0,max:3,w:6,up:true}
+];
+let entries=JSON.parse(localStorage.getItem("fenixSAppEntries")||"[]");
+function renderForm(){let f=document.getElementById("form");f.innerHTML="";metrics.forEach(m=>f.innerHTML+=`<div class="inputRow"><span>${m.n}</span><input id="${m.k}" type="number" step="0.1" placeholder="${m.min}-${m.max}"></div>`);}
+function norm(v,m){v=Number(v);if(isNaN(v))return null;v=Math.max(m.min,Math.min(m.max,v));let x=(v-m.min)/(m.max-m.min);return(m.up?x:1-x)*100}
+function score(e){let sum=0,w=0;metrics.forEach(m=>{let n=norm(e[m.k],m);if(n!==null){sum+=n*m.w;w+=m.w}});return w?Math.round(sum/w):null}
+function rec(s,e){if(s===null)return"Unesi podatke.";let r=s<45?"Crveno: odmor, voda, hlad i bez forsiranja.":s<70?"Žuto: radi važno ranije, planiraj pauze.":"Zeleno: dobar dan, ali ne troši se do nule.";if(Number(e.temp)>=32)r+=" Vrućina je važan faktor.";if(Number(e.drain)>=35&&Number(e.stress)<=35)r+=" Pad energije nije primarno od stresa.";return r}
+function saveEntry(){let e={date:new Date().toLocaleString("hr-HR")};metrics.forEach(m=>e[m.k]=document.getElementById(m.k).value);e.note=document.getElementById("note").value;e.score=score(e);entries.unshift(e);localStorage.setItem("fenixSAppEntries",JSON.stringify(entries));renderAll();window.scrollTo({top:0,behavior:"smooth"})}
+function dash(){let e=entries[0],s=document.getElementById("score"),st=document.getElementById("status"),r=document.getElementById("recommendation");if(!e){s.textContent="--";st.textContent="Unesi podatke";r.textContent="Unesi jutarnje podatke.";return}s.textContent=e.score;if(e.score<45){s.style.color="var(--red)";st.textContent="🔴 Nisko"}else if(e.score<70){s.style.color="var(--yellow)";st.textContent="🟡 Oprez"}else{s.style.color="var(--green)";st.textContent="🟢 Dobro"}r.textContent=rec(e.score,e)}
+function hist(){let h=document.getElementById("history");if(!entries.length){h.innerHTML="<p>Nema unosa.</p>";return}let rows=entries.slice(0,10).map(e=>`<tr><td>${e.date}</td><td>${e.score}</td><td>${e.bb||""}</td><td>${e.charge||""}</td><td>${e.drain||""}</td><td>${e.stress||""}</td><td>${e.temp||""}</td></tr>`).join("");h.innerHTML="<table><tr><th>Datum</th><th>FENIX</th><th>BB</th><th>+BB</th><th>-BB</th><th>Stres</th><th>Temp</th></tr>"+rows+"</table>"}
+function exportCsv(){let headers=["Datum","FENIX",...metrics.map(m=>m.n),"Bilješka"];let rows=entries.map(e=>[e.date,e.score,...metrics.map(m=>e[m.k]||""),e.note||""]);let csv=[headers,...rows].map(r=>r.map(x=>`"${String(x).replaceAll('"','""')}"`).join(",")).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="fenix_s_app_data.csv";a.click()}
+function renderAll(){renderForm();dash();hist()}renderAll();
+</script>
+</body></html>
